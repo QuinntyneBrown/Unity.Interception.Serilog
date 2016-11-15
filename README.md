@@ -1,6 +1,6 @@
-# Unity.Interception.Serilog
+# Unity.Interception.Serilog ![NuGet Status](https://img.shields.io/nuget/v/Unity.Interception.Serilog.svg?style=flat-square) ![Build Status](https://johanclasson.visualstudio.com/_apis/public/build/definitions/888f828d-d1a4-42fb-8b78-2e6420b1b2f8/14/badge)
 
-Types which are registered to the Unity Container with the `RegisterLoggedType` method are decorated with a logging behavior. The logs which are produced contains information about the respective types method invocations such as execution time, arguments and result, and are persisted though the Serilog ILogger-adapter.
+Types which are registered to the Unity Container with the `RegisterLoggedType` extension method are decorated with a logging behavior. The logs which are produced contains information about the respective types method invocations such as execution time, arguments and result, and are persisted though the Serilog ILogger-adapter.
 
 In addition, all logging through the configured ILogger instance are enriched with properties describing the environment where the logging event occurred.
 
@@ -8,12 +8,44 @@ In addition, all logging through the configured ILogger instance are enriched wi
 
 *Overview of Unity.Interception.Serilog*
 
-## Install
+## TL;DR
 
-To install Unity.Interception.Serilog, run the following command in the Package Manager Console:
+### Install NuGet-packages
 
-```
+```powershell
 Install-Package Unity.Interception.Serilog -Pre
+Install-Package Serilog.Sinks.Literate # Substitute this for your favorite Sink
+```
+
+### Sample Application
+
+```cs
+public interface IDummy
+{
+    void DoStuff();
+}
+
+internal class Dummy : IDummy
+{
+    public void DoStuff() { }
+}
+
+internal class Program
+{
+    public static void Main(string[] args)
+    {
+        using (var container = new UnityContainer())
+        {
+            container
+                .ConfigureSerilog(c => c.WriteTo.LiterateConsole())
+                .RegisterLoggedType<IDummy, Dummy>();
+
+            var dummy = container.Resolve<IDummy>();
+            dummy.DoStuff(); // Trace logs are written for method invocation
+            container.Resolve<ILogger>().Information("Application finished"); // Event log example
+        }
+    }
+}
 ```
 
 ## Configuration
@@ -26,7 +58,7 @@ Thrown exceptions are logged as errors by default, but it is possible to configu
 
 It is also possible to ignore methods from being logged at all, by passing a list of `MethodIdentifier`s.
 
-```charp
+```cs
 using Unity.Interception.Serilog;
 ...
 var container = new UnityContainer();
@@ -42,7 +74,7 @@ It is optional whether to pass the parameters `expectedExceptions` and `ignoredM
 
 As an alternative to configure ignored methods though `ConfigureSerilog`, you can use the `IgnoreMember` attribute. It is applicable to not only methods, but parameters as well.
 
-```charp
+```cs
 using Unity.Interception.Customization;
 ...
 public interface IMyType
@@ -59,7 +91,7 @@ public interface IMyType
 
 To enable logging for a certain type use one of the extension methods:
 
-```charp
+```cs
 using Unity.Interception.Serilog;
 ...
 var container = new UnityContainer();
@@ -68,6 +100,7 @@ container
     .RegisterLoggedType<IMyType, MyType>();
     .RegisterLoggedInstance<IMyType>(new MyType());
 ```
+
 ## Logging
 
 All logs that is made through the `ILogger` that is registered in the container are enriched with the properties that are mentioned in [CommonProperties.cs](src/Unity.Interception.Serilog/CommonProperties.cs).
@@ -91,7 +124,7 @@ The properties `Exception` och `ExceptionType` are included for logs for thrown 
 
 There is no built in support for formating event logs like the trace logs. You will have to write your own helper for that. For example:
 
-```charp
+```cs
 public static void Information<T>(
     this ILogger logger, string eventId,
     string messageTemplate, params object[] propertyValues)
@@ -109,7 +142,7 @@ public static void Information<T>(
 
 There is a `TraceLog` helper class that is useful together with the SQL Server sink. For example, you could configure Serilog like so:
 
-```charp
+```cs
 var columnOptions = new ColumnOptions { AdditionalDataColumns = TraceLog.DataColumns };
 columnOptions.Properties.ExcludeAdditionalProperties = true;
 var container = new UnityContainer()
@@ -122,4 +155,3 @@ var container = new UnityContainer()
 
 * [Serilog Wiki](https://github.com/serilog/serilog/wiki/Getting-Started)
 * [Patterns & Practices - Unity.Interception](https://msdn.microsoft.com/en-us/library/dn178466.aspx)
-
